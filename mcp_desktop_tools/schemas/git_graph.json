@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "git_graph response",
+  "type": "object",
+  "required": ["ok", "data"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "data": {
+      "type": "object",
+      "required": ["repo_root", "branches", "last_commits"],
+      "properties": {
+        "repo_root": {"type": "string"},
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "is_current"],
+            "properties": {
+              "name": {"type": "string"},
+              "is_current": {"type": "boolean"},
+              "ahead": {"type": ["integer", "null"]},
+              "behind": {"type": ["integer", "null"]},
+              "commit": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "last_commits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hash", "author", "email", "date", "message"],
+            "properties": {
+              "hash": {"type": "string"},
+              "author": {"type": "string"},
+              "email": {"type": "string"},
+              "date": {"type": "string"},
+              "message": {"type": "string"},
+              "files": {
+                "type": ["array", "null"],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {"type": "string"},
+                    "additions": {"type": ["integer", "null"]},
+                    "deletions": {"type": ["integer", "null"]}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "email": {"type": "string"},
+              "commits": {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "elapsed_ms": {"type": "integer"},
+        "git_cmd_ms": {"type": "integer"}
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

@@ -76,13 +76,18 @@ class Workspace:
 @dataclass
 class EnvConfig:
     rg_path: Optional[str] = None
+    git_path: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "EnvConfig":
         if not data:
             return cls()
         rg_path = data.get("rg_path")
-        return cls(rg_path=str(rg_path) if rg_path is not None else None)
+        git_path = data.get("git_path")
+        return cls(
+            rg_path=str(rg_path) if rg_path is not None else None,
+            git_path=str(git_path) if git_path is not None else None,
+        )
 
 
 @dataclass
@@ -90,19 +95,36 @@ class LimitsConfig:
     max_matches: int = 1000
     max_output_bytes: int = 5_000_000
     max_file_size_bytes: int = 2_000_000
+    git_last_commits: int = 20
+    repo_map_max_depth: int = 5
+    repo_map_top_dirs: int = 50
+    repo_map_follow_symlinks: bool = False
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "LimitsConfig":
         if not data:
             return cls()
         kwargs = {}
-        for key in ("max_matches", "max_output_bytes", "max_file_size_bytes"):
+        int_fields = (
+            "max_matches",
+            "max_output_bytes",
+            "max_file_size_bytes",
+            "git_last_commits",
+            "repo_map_max_depth",
+            "repo_map_top_dirs",
+        )
+        for key in int_fields:
             value = data.get(key)
             if value is None:
                 continue
             if not isinstance(value, int) or value < 0:
                 raise ValidationError(f"{key} must be a non-negative integer")
             kwargs[key] = value
+        follow = data.get("repo_map_follow_symlinks")
+        if follow is not None:
+            if not isinstance(follow, bool):
+                raise ValidationError("repo_map_follow_symlinks must be a boolean")
+            kwargs["repo_map_follow_symlinks"] = follow
         return cls(**kwargs)
 
     def merge(self, **overrides: Optional[int]) -> "LimitsConfig":
@@ -110,6 +132,10 @@ class LimitsConfig:
             "max_matches": self.max_matches,
             "max_output_bytes": self.max_output_bytes,
             "max_file_size_bytes": self.max_file_size_bytes,
+            "git_last_commits": self.git_last_commits,
+            "repo_map_max_depth": self.repo_map_max_depth,
+            "repo_map_top_dirs": self.repo_map_top_dirs,
+            "repo_map_follow_symlinks": self.repo_map_follow_symlinks,
         }
         for key, value in overrides.items():
             if value is not None:
@@ -161,6 +187,7 @@ class WorkspacesConfig:
 DEFAULT_CONFIG_NAME = "workspaces.yaml"
 ENV_CONFIG_PATH = "MCPDT_WORKSPACES"
 ENV_RG_PATH = "MCPDT_RG_PATH"
+ENV_GIT_PATH = "MCPDT_GIT_PATH"
 
 
 def _locate_config_file(explicit_path: Optional[Path] = None) -> Path:
@@ -184,6 +211,10 @@ def load_workspaces(config_path: Optional[Path] = None) -> WorkspacesConfig:
     rg_path_override = os.environ.get(ENV_RG_PATH)
     if rg_path_override:
         config.env.rg_path = rg_path_override
+
+    git_path_override = os.environ.get(ENV_GIT_PATH)
+    if git_path_override:
+        config.env.git_path = git_path_override
 
     return config
 
