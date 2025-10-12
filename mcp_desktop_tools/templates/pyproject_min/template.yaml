@@ -1,0 +1,14 @@
+name: pyproject_min
+version: 1
+description: "Minimal pyproject configuration"
+vars:
+  project_name:
+    required: true
+  description:
+    required: false
+    default: "Generated with mcp-tools scaffold"
+files:
+  - src: "files/pyproject.toml.j2"
+    dst: "pyproject.toml"
+  - src: "files/README.md.j2"
+    dst: "README.md"

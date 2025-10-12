@@ -1,6 +1,6 @@
 # MCP Desktop Tools – Tool Reference
 
-This document enumerates the MCP tools exported by the desktop server in release **0.1.0a2**. Each section outlines the intent, key input arguments, response shape, and operational limits.
+This document enumerates the MCP tools exported by the desktop server in release **0.1.0b1**. Each section outlines the intent, key input arguments, response shape, and operational limits.
 
 ## `search_text`
 
@@ -56,3 +56,41 @@ This document enumerates the MCP tools exported by the desktop server in release
   - `data.largest_files` – Up to 50 largest files encountered, sorted descending by size.
   - `metrics` – Includes `elapsed_ms`, `fs_walk_count`, and `bytes_scanned`.
 - **Limits:** Files exceeding `max_file_size_bytes` are skipped with warnings. Directory traversal stops once `max_depth`/`top_dirs` limits are reached. Exclusions combine workspace defaults and request-level globs.
+
+## `scaffold`
+
+- **Intent:** Generate files and directories from Jinja2 templates or inline specifications while enforcing workspace safety.
+- **Input:**
+  - `workspace_id` *(string, required)*
+  - `target_rel` *(string, required)* – Directory relative to the workspace root where files are created.
+  - `template_id` *(string)* – Identifier of a built-in or user template. Mutually exclusive with `inline_spec`.
+  - `inline_spec` *(object)* – JSON structure describing `files: [{path, content, executable?}]`.
+  - `vars` *(object[string]*) – Variables rendered into template paths and files.
+  - `dry_run` *(bool, default: true)* – When `true`, only a plan is returned; no files are written.
+  - `overwrite` *(bool, default: false)* – When `false`, existing files are skipped.
+  - `select` *(array[string])* – Optional subset of template destinations to apply.
+- **Output:**
+  - `data.planned` – List of `{op, path}` items (`create`, `overwrite`, `skip`). Paths are relative to the workspace root.
+  - `data.stats` – `files_planned`, `files_written`, `bytes_written`, `dry_run` flag.
+  - `warnings` – Messages describing skipped files or safety issues.
+- **Limits:** `scaffold_max_files` and `scaffold_max_total_bytes` cap the number of generated files and cumulative size.
+
+See [DOCS/SCAFFOLD.md](SCAFFOLD.md) for template authoring details and GardenKeeper examples.
+
+## `open_recent`
+
+- **Intent:** Return a list of recently modified files within a workspace subtree without opening them.
+- **Input:**
+  - `workspace_id` *(string, required)*
+  - `rel_path` *(string)* – Optional subdirectory to scan.
+  - `count` *(int, default: global `recent_files_count`)* – Maximum files to return.
+  - `extensions`, `include_globs`, `exclude_globs` – Filters applied alongside workspace excludes.
+  - `since` *(string)* – ISO8601 timestamp; files older than this are ignored.
+  - `follow_symlinks` *(bool, default: false)* – Whether to traverse directory symlinks.
+- **Output:**
+  - `data.files` – Array sorted by `mtime` descending with `path`, `abs_path`, `mtime`, and `bytes`.
+  - `data.total_scanned` – Count of files considered after filtering.
+  - `metrics.fs_walk_count` and `metrics.elapsed_ms` – Filesystem traversal statistics.
+- **Limits:** Directory traversal respects workspace excludes and `count` is bounded by `recent_files_count`.
+
+See [DOCS/OPEN_RECENT.md](OPEN_RECENT.md) for usage patterns.

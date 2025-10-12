@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scaffold tool schema",
+  "type": "object",
+  "properties": {
+    "workspace_id": {"type": "string"},
+    "target_rel": {"type": "string"},
+    "template_id": {"type": "string"},
+    "inline_spec": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "content"],
+            "properties": {
+              "path": {"type": "string"},
+              "content": {"type": "string"},
+              "executable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "vars": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "dry_run": {"type": "boolean"},
+    "overwrite": {"type": "boolean"},
+    "select": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["workspace_id", "target_rel"],
+  "oneOf": [
+    {"required": ["template_id"]},
+    {"required": ["inline_spec"]}
+  ]
+}

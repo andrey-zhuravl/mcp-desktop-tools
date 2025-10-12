@@ -1,0 +1,16 @@
+"""Entry point for {{ project_name }} CLI."""
+from __future__ import annotations
+
+import typer
+
+app = typer.Typer(help="{{ description }}")
+
+
+@app.command()
+def main(name: str = "world") -> None:
+    """Greet the provided *name*."""
+    typer.echo(f"Hello, {name}!")
+
+
+if __name__ == "__main__":
+    app()

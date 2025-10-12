@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "{{ description }}"
+requires-python = ">=3.10"
+dependencies = ["typer>=0.12", "rich>=13.0"]
+
+[project.scripts]
+{{ project_name }} = "{{ package_name }}.cli:app"

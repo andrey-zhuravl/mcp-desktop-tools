@@ -83,6 +83,42 @@ def test_env_git_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
     assert loaded.env.git_path == "/usr/bin/git"
 
 
+def test_env_template_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = _write_config(
+        tmp_path,
+        """
+        version: 1
+        workspaces:
+          - id: demo
+            path: /tmp/demo
+            tools:
+              allow: [scaffold]
+        """,
+    )
+    monkeypatch.setenv(config.ENV_CONFIG_PATH, str(cfg))
+    monkeypatch.setenv(config.ENV_TEMPLATES_DIR, "/custom/templates")
+    loaded = config.load_workspaces()
+    assert loaded.env.templates_user_dir == "/custom/templates"
+
+
+def test_env_scaffold_dry_run_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = _write_config(
+        tmp_path,
+        """
+        version: 1
+        workspaces:
+          - id: demo
+            path: /tmp/demo
+            tools:
+              allow: [scaffold]
+        """,
+    )
+    monkeypatch.setenv(config.ENV_CONFIG_PATH, str(cfg))
+    monkeypatch.setenv(config.ENV_SCAFFOLD_DRYRUN, "0")
+    loaded = config.load_workspaces()
+    assert loaded.env.scaffold_default_dry_run is False
+
+
 def test_invalid_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = _write_config(
         tmp_path,

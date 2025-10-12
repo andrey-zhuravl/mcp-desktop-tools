@@ -7,10 +7,13 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 
 from .config import load_workspaces
 from .tools.git_graph import GitGraphRequest, GitGraphResponse, execute as execute_git_graph
+from .tools.open_recent import OpenRecentRequest, OpenRecentResponse, execute as execute_open_recent
 from .tools.repo_map import RepoMapRequest, RepoMapResponse, execute as execute_repo_map
+from .tools.scaffold import ScaffoldRequest, ScaffoldResponse, execute as execute_scaffold
 from .tools.search_text import SearchTextRequest, SearchTextResponse, execute
 from .utils.yaml import dump_yaml
 
@@ -68,6 +71,30 @@ def _build_parser() -> argparse.ArgumentParser:
     repo_map_parser.set_defaults(follow_symlinks=None)
     repo_map_parser.add_argument("--include", action="append", default=[], help="Glob to include")
     repo_map_parser.add_argument("--exclude", action="append", default=[], help="Glob to exclude")
+
+    scaffold_parser = subparsers.add_parser("scaffold", help="Generate files from templates")
+    scaffold_parser.add_argument("--target-rel", required=True, dest="target_rel", help="Target directory relative to workspace")
+    group = scaffold_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--template-id", dest="template_id", help="Identifier of template to apply")
+    group.add_argument("--inline-spec", dest="inline_spec", help="Path to inline JSON specification")
+    scaffold_parser.add_argument("--var", action="append", default=[], help="Template variable in key=value form")
+    scaffold_parser.add_argument("--select", action="append", default=[], help="Subset of template paths to apply")
+    scaffold_parser.add_argument("--dry-run", dest="dry_run", action="store_true", default=None, help="Preview operations without writing (default)")
+    scaffold_parser.add_argument("--no-dry-run", dest="dry_run", action="store_false", help="Write files to disk")
+    scaffold_parser.add_argument("--overwrite", dest="overwrite", action="store_true", help="Overwrite existing files")
+    scaffold_parser.add_argument("--no-overwrite", dest="overwrite", action="store_false", help="Skip existing files (default)")
+    scaffold_parser.set_defaults(overwrite=False)
+
+    open_recent_parser = subparsers.add_parser("open_recent", help="List recently modified files")
+    open_recent_parser.add_argument("--rel-path", dest="rel_path", help="Path inside workspace")
+    open_recent_parser.add_argument("--count", type=int, dest="count", help="Number of files to return")
+    open_recent_parser.add_argument("--extensions", action="append", default=[], help="Filter by extension (e.g. .py)")
+    open_recent_parser.add_argument("--include", action="append", default=[], help="Glob to include")
+    open_recent_parser.add_argument("--exclude", action="append", default=[], help="Glob to exclude")
+    open_recent_parser.add_argument("--since", dest="since", help="Filter files modified after ISO8601 timestamp")
+    open_recent_parser.add_argument("--follow-symlinks", dest="follow_symlinks", action="store_true", help="Follow symlinks when walking")
+    open_recent_parser.add_argument("--no-follow-symlinks", dest="follow_symlinks", action="store_false", help="Do not follow symlinks (default)")
+    open_recent_parser.set_defaults(follow_symlinks=False)
 
     return parser
 
@@ -158,6 +185,47 @@ def _print_repo_map(response: RepoMapResponse) -> None:
         print(f"Warning: {warning}")
 
 
+def _print_scaffold(response: ScaffoldResponse) -> None:
+    if not response.ok:
+        message = response.error.get("message") if response.error else "Unknown error"
+        print(f"Error: {message}")
+        for warning in response.warnings:
+            print(f"Warning: {warning}")
+        return
+    if not response.data.planned:
+        print("No operations planned")
+    else:
+        print("Planned operations:")
+        for op in response.data.planned:
+            print(f"  {op.op.upper():<10} {op.path}")
+    stats = response.data.stats
+    print("Stats:")
+    print(f"  files_planned: {stats.files_planned}")
+    print(f"  files_written: {stats.files_written}")
+    print(f"  bytes_written: {stats.bytes_written}")
+    print(f"  dry_run: {stats.dry_run}")
+    for warning in response.warnings:
+        print(f"Warning: {warning}")
+
+
+def _print_open_recent(response: OpenRecentResponse) -> None:
+    if not response.ok:
+        message = response.error.get("message") if response.error else "Unknown error"
+        print(f"Error: {message}")
+        for warning in response.warnings:
+            print(f"Warning: {warning}")
+        return
+    if not response.data.files:
+        print("No files matched filters")
+    else:
+        print("Recent files:")
+        for item in response.data.files:
+            print(f"  {item.mtime} {item.path} ({item.bytes} bytes)")
+    print(f"Total scanned: {response.data.total_scanned}")
+    for warning in response.warnings:
+        print(f"Warning: {warning}")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -211,6 +279,53 @@ def main(argv: Optional[List[str]] = None) -> int:
         response = execute_repo_map(request, config)
         payload = response.to_dict()
         printer = _print_repo_map
+    elif args.command == "scaffold":
+        vars_map = {}
+        for item in args.var or []:
+            if "=" not in item:
+                parser.error(f"Invalid --var entry '{item}', expected key=value")
+            key, value = item.split("=", 1)
+            vars_map[key] = value
+        inline_payload = None
+        if args.inline_spec:
+            inline_path = Path(args.inline_spec)
+            if not inline_path.exists():
+                parser.error(f"Inline specification file not found: {inline_path}")
+            try:
+                inline_payload = json.loads(inline_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                parser.error(f"Invalid inline specification JSON: {exc}")
+        dry_run = args.dry_run
+        if dry_run is None:
+            default = config.env.scaffold_default_dry_run
+            dry_run = True if default is None else bool(default)
+        request = ScaffoldRequest(
+            workspace_id=args.workspace,
+            target_rel=args.target_rel,
+            template_id=args.template_id,
+            inline_spec=inline_payload,
+            vars=vars_map,
+            dry_run=dry_run,
+            overwrite=args.overwrite,
+            select=args.select or [],
+        )
+        response = execute_scaffold(request, config)
+        payload = response.to_dict()
+        printer = _print_scaffold
+    elif args.command == "open_recent":
+        request = OpenRecentRequest(
+            workspace_id=args.workspace,
+            rel_path=args.rel_path,
+            count=args.count,
+            extensions=args.extensions or [],
+            include_globs=args.include or [],
+            exclude_globs=args.exclude or [],
+            since=args.since,
+            follow_symlinks=args.follow_symlinks,
+        )
+        response = execute_open_recent(request, config)
+        payload = response.to_dict()
+        printer = _print_open_recent
     else:
         parser.error("A command is required")
         return 1

@@ -2,7 +2,7 @@
 
 MCP Desktop Tools provides a minimal Model Context Protocol (MCP) server and a local CLI (`mcp-tools`) for inspecting source trees across configured workspaces using ripgrep and git.
 
-## Features (A2)
+## Features (B1)
 
 - Minimal MCP server that registers the `search_text`, `git_graph`, and `repo_map` tools and handles JSON-line requests via stdin/stdout.
 - Lightweight CLI (`mcp-tools`) implemented with the Python standard library.
@@ -11,6 +11,8 @@ MCP Desktop Tools provides a minimal Model Context Protocol (MCP) server and a l
 - Ripgrep and git adapters that enforce limits and parse structured output.
 - Tool responses include elapsed timings (`elapsed_ms`, `git_cmd_ms`, `fs_walk_count`) and human-readable warnings when truncation occurs.
 - Logging with configurable level through the `MCPDT_LOG` environment variable or CLI flag.
+- Scaffold and open_recent tools for generating project skeletons and listing recently modified files.
+- Built-in template registry with support for user-provided templates located in `~/.mcpdt/templates` (override via `MCPDT_TEMPLATES_USER_DIR`).
 
 ## Installation
 
@@ -49,6 +51,18 @@ Generate a repository map:
 mcp-tools --workspace demo repo_map --rel-path proj --max-depth 5 --top-dirs 30 --yaml
 ```
 
+Scaffold a project using the built-in templates:
+
+```bash
+mcp-tools --workspace demo scaffold --target-rel demo --template-id pyproject_min --var project_name=demo --dry-run --json
+```
+
+List recently updated files:
+
+```bash
+mcp-tools --workspace demo open_recent --rel-path proj --count 20 --extensions .py --json
+```
+
 Use `--yaml` to emit YAML instead of tabular output. Commands exit with a non-zero status when the underlying tool reports an error.
 
 ## Server Usage
@@ -66,6 +80,8 @@ The server accepts JSON lines on stdin with the following structure:
 ```
 
 Responses follow the unified schemas documented in `mcp_desktop_tools/schemas/*.json`.
+
+Detailed usage guides for the scaffold and open_recent tools, including template formats and GardenKeeper integration examples, are available in `DOCS/SCAFFOLD.md`, `DOCS/OPEN_RECENT.md`, and `DOCS/TEMPLATES.md`.
 
 ## Logging
 

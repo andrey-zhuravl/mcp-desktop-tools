@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Open recent tool schema",
+  "type": "object",
+  "properties": {
+    "workspace_id": {"type": "string"},
+    "rel_path": {"type": "string"},
+    "count": {"type": "integer", "minimum": 1},
+    "extensions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "include_globs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "exclude_globs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "since": {"type": "string"},
+    "follow_symlinks": {"type": "boolean"}
+  },
+  "required": ["workspace_id"]
+}

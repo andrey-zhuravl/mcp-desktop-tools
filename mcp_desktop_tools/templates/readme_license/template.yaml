@@ -1,0 +1,17 @@
+name: readme_license
+version: 1
+description: "Generate README and LICENSE"
+vars:
+  project_name:
+    required: true
+  owner:
+    required: false
+    default: "ACME Corp"
+  year:
+    required: false
+    default: "2024"
+files:
+  - src: "files/README.md.j2"
+    dst: "README.md"
+  - src: "files/LICENSE.j2"
+    dst: "LICENSE"
