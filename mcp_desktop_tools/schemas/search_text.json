@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "search_text input",
+  "type": "object",
+  "required": ["query", "workspace_id"],
+  "properties": {
+    "workspace_id": {
+      "type": "string",
+      "description": "Workspace identifier"
+    },
+    "rel_path": {
+      "type": "string",
+      "description": "Path relative to workspace root"
+    },
+    "query": {
+      "type": "string",
+      "description": "Search query string"
+    },
+    "regex": {
+      "type": "boolean",
+      "default": true
+    },
+    "case_sensitive": {
+      "type": "boolean",
+      "default": false
+    },
+    "include_globs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "exclude_globs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "max_matches": {
+      "type": "integer",
+      "default": 1000
+    },
+    "before": {
+      "type": "integer",
+      "default": 0
+    },
+    "after": {
+      "type": "integer",
+      "default": 0
+    },
+    "max_depth": {
+      "type": "integer"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+version: 1
+workspaces:
+  - id: "demo"
+    path: "/workspace"
+    max_depth: 5
+    excludes:
+      - "**/.git/**"
+      - "**/.venv/**"
+    tools:
+      allow:
+        - "search_text"
+env:
+  rg_path: "rg"
+limits:
+  max_matches: 1000
+  max_output_bytes: 5000000
+  max_file_size_bytes: 2000000

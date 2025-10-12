@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-desktop-tools"
+version = "0.1.0a1"
+description = "MCP Desktop Tools server and CLI"
+authors = [{name = "MCP Desktop Tools Team"}]
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://example.com/mcp-desktop-tools"
+
+[project.scripts]
+mcp-tools = "mcp_desktop_tools.cli:main"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+python_files = "test_*.py"
