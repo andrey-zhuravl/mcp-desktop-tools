@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "repo_map response",
+  "type": "object",
+  "required": ["ok", "data"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "data": {
+      "type": "object",
+      "required": ["summary", "top", "extensions"],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": ["files", "bytes"],
+          "properties": {
+            "files": {"type": "integer"},
+            "bytes": {"type": "integer"}
+          }
+        },
+        "top": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dir", "files", "bytes"],
+            "properties": {
+              "dir": {"type": "string"},
+              "files": {"type": "integer"},
+              "bytes": {"type": "integer"}
+            }
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": {"type": "integer"}
+        },
+        "languages": {
+          "type": "object",
+          "additionalProperties": {"type": "integer"}
+        },
+        "largest_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {"type": "string"},
+              "bytes": {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "elapsed_ms": {"type": "integer"},
+        "fs_walk_count": {"type": "integer"},
+        "bytes_scanned": {"type": "integer"}
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

@@ -9,9 +9,16 @@ workspaces:
     tools:
       allow:
         - "search_text"
+        - "git_graph"
+        - "repo_map"
 env:
   rg_path: "rg"
+  git_path: "git"
 limits:
   max_matches: 1000
   max_output_bytes: 5000000
   max_file_size_bytes: 2000000
+  git_last_commits: 20
+  repo_map_max_depth: 5
+  repo_map_top_dirs: 50
+  repo_map_follow_symlinks: false

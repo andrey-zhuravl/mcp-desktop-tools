@@ -8,6 +8,8 @@ import os
 import sys
 
 from .config import load_workspaces
+from .tools.git_graph import GitGraphRequest, execute as execute_git_graph
+from .tools.repo_map import RepoMapRequest, execute as execute_repo_map
 from .tools.search_text import SearchTextRequest, execute
 
 LOG_ENV = "MCPDT_LOG"
@@ -33,11 +35,23 @@ class MCPServer:
         self.config = load_workspaces()
         self.registry = ToolRegistry()
         self.registry.register("search_text", self._run_search_text)
+        self.registry.register("git_graph", self._run_git_graph)
+        self.registry.register("repo_map", self._run_repo_map)
         LOGGER.info("Registered tools: %s", ", ".join(self.registry._tools.keys()))
 
     def _run_search_text(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         request = SearchTextRequest.from_dict(payload)
         response = execute(request, self.config)
+        return response.to_dict()
+
+    def _run_git_graph(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        request = GitGraphRequest.from_dict(payload)
+        response = execute_git_graph(request, self.config)
+        return response.to_dict()
+
+    def _run_repo_map(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        request = RepoMapRequest.from_dict(payload)
+        response = execute_repo_map(request, self.config)
         return response.to_dict()
 
     def handle_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:

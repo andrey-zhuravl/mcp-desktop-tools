@@ -63,6 +63,26 @@ def test_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         loaded.get_workspace("a")
 
 
+def test_env_git_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = _write_config(
+        tmp_path,
+        """
+        version: 1
+        workspaces:
+          - id: demo
+            path: /tmp/demo
+            tools:
+              allow: [search_text]
+        env:
+          git_path: git
+        """,
+    )
+    monkeypatch.setenv(config.ENV_CONFIG_PATH, str(cfg))
+    monkeypatch.setenv(config.ENV_GIT_PATH, "/usr/bin/git")
+    loaded = config.load_workspaces()
+    assert loaded.env.git_path == "/usr/bin/git"
+
+
 def test_invalid_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = _write_config(
         tmp_path,
