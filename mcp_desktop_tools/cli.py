@@ -13,6 +13,12 @@ from .config import load_workspaces
 from .tools.git_graph import GitGraphRequest, GitGraphResponse, execute as execute_git_graph
 from .tools.open_recent import OpenRecentRequest, OpenRecentResponse, execute as execute_open_recent
 from .tools.repo_map import RepoMapRequest, RepoMapResponse, execute as execute_repo_map
+from .tools.snapshot import (
+    SnapshotRequest,
+    SnapshotResponse,
+    DEFAULT_ARTIFACT_NAME as SNAPSHOT_DEFAULT_ARTIFACT,
+    execute as execute_snapshot,
+)
 from .tools.scaffold import ScaffoldRequest, ScaffoldResponse, execute as execute_scaffold
 from .tools.search_text import SearchTextRequest, SearchTextResponse, execute
 from .utils.yaml import dump_yaml
@@ -74,6 +80,27 @@ def _build_parser() -> argparse.ArgumentParser:
     repo_map_parser.set_defaults(follow_symlinks=None)
     repo_map_parser.add_argument("--include", action="append", default=[], help="Glob to include")
     repo_map_parser.add_argument("--exclude", action="append", default=[], help="Glob to exclude")
+
+    snapshot_parser = subparsers.add_parser("snapshot", help="Capture workspace snapshot")
+    snapshot_parser.add_argument("--rel-path", required=True, dest="rel_path", help="Path inside workspace")
+    snapshot_parser.add_argument("--no-git", dest="include_git", action="store_false", help="Skip git section")
+    snapshot_parser.add_argument("--no-fs", dest="include_fs", action="store_false", help="Skip filesystem section")
+    snapshot_parser.add_argument("--no-env", dest="include_env", action="store_false", help="Skip environment section")
+    snapshot_parser.set_defaults(include_git=True, include_fs=True, include_env=True)
+    snapshot_parser.add_argument("--largest-files", type=int, dest="largest_files", help="Limit largest file entries")
+    snapshot_parser.add_argument("--mlflow-uri", dest="mlflow_uri", help="MLflow tracking URI override")
+    snapshot_parser.add_argument("--experiment", dest="experiment", help="MLflow experiment name")
+    snapshot_parser.add_argument("--run-name", dest="run_name", help="MLflow run name")
+    snapshot_parser.add_argument("--tag", action="append", dest="tags", default=[], help="Tag key=value for MLflow runs")
+    snapshot_parser.add_argument(
+        "--artifact-path",
+        dest="artifact_path",
+        help=f"Snapshot artifact file name (default: {SNAPSHOT_DEFAULT_ARTIFACT})",
+    )
+    snapshot_parser.add_argument(
+        "--no-mlflow", dest="mlflow_logging", action="store_false", help="Disable MLflow logging"
+    )
+    snapshot_parser.set_defaults(mlflow_logging=True)
 
     scaffold_parser = subparsers.add_parser("scaffold", help="Generate files from templates")
     scaffold_parser.add_argument("--target-rel", required=True, dest="target_rel", help="Target directory relative to workspace")
@@ -184,6 +211,67 @@ def _print_repo_map(response: RepoMapResponse) -> None:
         print("Largest files:")
         for item in response.data.largest_files[:10]:
             print(f"  {item['path']}: {item['bytes']} bytes")
+    for warning in response.warnings:
+        print(f"Warning: {warning}")
+
+
+def _print_snapshot(response: SnapshotResponse) -> None:
+    if not response.ok:
+        message = response.error.get("message") if response.error else "Unknown error"
+        print(f"Error: {message}")
+        for warning in response.warnings:
+            print(f"Warning: {warning}")
+        return
+
+    snapshot = response.data.snapshot
+    repo_root = snapshot.get("repo_root", "<unknown>")
+    generated = snapshot.get("generated_at", "<unknown>")
+    print(f"Snapshot for {repo_root}")
+    print(f"Generated at: {generated}")
+
+    git_section = snapshot.get("git")
+    if isinstance(git_section, dict):
+        branch = git_section.get("branch") or "<unknown>"
+        head = git_section.get("head") or "<unknown>"
+        print(f"Git branch: {branch}")
+        print(f"Git head: {head}")
+
+    fs_section = snapshot.get("fs")
+    if isinstance(fs_section, dict):
+        summary = fs_section.get("summary")
+        if isinstance(summary, dict):
+            files = summary.get("files")
+            size = summary.get("bytes")
+            print(f"Files: {files} Bytes: {size}")
+        largest = fs_section.get("largest_files")
+        if isinstance(largest, list) and largest:
+            first = largest[0]
+            if isinstance(first, dict):
+                print(f"Largest file: {first.get('path')} ({first.get('bytes')} bytes)")
+
+    env_section = snapshot.get("env")
+    if isinstance(env_section, dict):
+        os_name = env_section.get("os")
+        arch = env_section.get("arch")
+        python_version = env_section.get("python")
+        print("Environment:")
+        if os_name:
+            print(f"  OS: {os_name}")
+        if arch:
+            print(f"  Arch: {arch}")
+        if python_version:
+            print(f"  Python: {python_version}")
+
+    if response.data.artifact:
+        print(f"Artifact: {response.data.artifact}")
+    if response.data.mlflow:
+        info = response.data.mlflow
+        print("MLflow:")
+        for key in ("tracking_uri", "experiment_id", "run_id"):
+            value = info.get(key)
+            if value:
+                print(f"  {key}: {value}")
+
     for warning in response.warnings:
         print(f"Warning: {warning}")
 
@@ -312,6 +400,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         response = execute_repo_map(request, config)
         payload = response.to_dict()
         printer = _print_repo_map
+    elif args.command == "snapshot":
+        tags: Dict[str, str] = {}
+        for item in args.tags or []:
+            if "=" not in item:
+                parser.error(f"Invalid --tag entry '{item}', expected key=value")
+            key, value = item.split("=", 1)
+            tags[key] = value
+        largest = args.largest_files if args.largest_files is not None else SnapshotRequest.__dataclass_fields__["largest_files"].default
+        request = SnapshotRequest(
+            workspace_id=args.workspace,
+            rel_path=args.rel_path,
+            include_git=args.include_git,
+            include_fs=args.include_fs,
+            include_env=args.include_env,
+            largest_files=largest,
+            mlflow_logging=args.mlflow_logging,
+            mlflow_uri=args.mlflow_uri,
+            experiment=args.experiment,
+            run_name=args.run_name,
+            tags=tags,
+            artifact_path=args.artifact_path or SNAPSHOT_DEFAULT_ARTIFACT,
+        )
+        response = execute_snapshot(request, config)
+        payload = response.to_dict()
+        printer = _print_snapshot
     elif args.command == "scaffold":
         vars_map = {}
         for item in args.var or []:

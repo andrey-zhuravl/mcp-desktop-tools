@@ -11,6 +11,7 @@ workspaces:
         - "search_text"
         - "git_graph"
         - "repo_map"
+        - "snapshot"
 env:
   rg_path: "rg"
   git_path: "git"

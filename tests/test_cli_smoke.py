@@ -126,6 +126,53 @@ limits:
     assert "\"summary\"" in captured.out
 
 
+@pytest.mark.skipif(not GIT_AVAILABLE, reason="git is required for CLI snapshot test")
+def test_cli_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    subprocess.run(["git", "init"], cwd=workspace_root, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "config", "user.name", "Tester"], cwd=workspace_root, check=True)
+    subprocess.run(["git", "config", "user.email", "tester@example.com"], cwd=workspace_root, check=True)
+    (workspace_root / "file.txt").write_text("hello", encoding="utf-8")
+    subprocess.run(["git", "add", "file.txt"], cwd=workspace_root, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=workspace_root, check=True)
+
+    config_file = tmp_path / "workspaces.yaml"
+    config_file.write_text(
+        f"""
+version: 1
+workspaces:
+  - id: demo
+    path: {workspace_root.as_posix()}
+    tools:
+      allow: [snapshot, git_graph, repo_map]
+limits:
+  git_last_commits: 5
+  repo_map_top_dirs: 5
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(ENV_CONFIG_PATH, str(config_file))
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main([
+        "--workspace",
+        "demo",
+        "--json",
+        "snapshot",
+        "--rel-path",
+        ".",
+        "--no-mlflow",
+        "--artifact-path",
+        "repo_snapshot.json",
+    ])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "\"repo_root\"" in captured.out
+    assert Path("repo_snapshot.json").exists()
+
+
 def test_cli_scaffold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
     workspace_root = tmp_path / "workspace"
     workspace_root.mkdir()

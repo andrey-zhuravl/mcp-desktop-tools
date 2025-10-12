@@ -2,7 +2,7 @@
 
 MCP Desktop Tools provides a minimal Model Context Protocol (MCP) server and a local CLI (`mcp-tools`) for inspecting source trees across configured workspaces using ripgrep and git.
 
-## Features (B2)
+## Features (C1)
 
 - Minimal MCP server registering `search_text`, `git_graph`, `repo_map`, `scaffold`, and `open_recent` tools, speaking JSON over stdin/stdout.
 - Workspace configuration via `workspaces.yaml` with environment overrides.
@@ -13,6 +13,8 @@ MCP Desktop Tools provides a minimal Model Context Protocol (MCP) server and a l
 - Ripgrep and git adapters with configurable timeouts (`MCPDT_SUBPROC_TIMEOUT_MS`) and warnings for truncated results.
 - Logging with configurable level through `MCPDT_LOG` or the CLI `--log-level` flag.
 - Scaffold and open_recent tools for generating project skeletons and listing recently modified files, with user template overrides (`MCPDT_TEMPLATES_USER_DIR`).
+- **New:** `snapshot` tool composes git history, filesystem stats, and safe environment markers into a single JSON artifact that can optionally be logged to MLflow.
+- **New:** Minimal Python client (`mcp_desktop_tools.integrations.lab_client.LabClient`) for invoking tools from *Lab agents.
 
 ## Installation
 
@@ -53,6 +55,12 @@ Generate a repository map:
 mcp-tools --workspace demo repo_map --rel-path proj --max-depth 5 --top-dirs 30 --yaml
 ```
 
+Capture a repository snapshot and log it to MLflow:
+
+```bash
+mcp-tools --workspace demo snapshot --rel-path proj --run-name "$BUILD_TAG" --tag repo=proj --mlflow-uri "$MLFLOW_TRACKING_URI" --experiment homelab --artifact-path repo_snapshot.json --json
+```
+
 Scaffold a project using the built-in templates:
 
 ```bash
@@ -67,6 +75,7 @@ mcp-tools --workspace demo open_recent --rel-path proj --count 20 --extensions .
 
 Use `--yaml` to emit YAML instead of tabular output. `--profile` prints stage timings to `stderr` and includes `metrics.profile` in structured outputs.
 All cache-enabled commands accept `--no-cache`; filesystem-heavy commands accept `--max-workers` to cap concurrency.
+Set `MCPDT_SNAPSHOT_INCLUDE_ENV=1` to include safe environment markers (`os`, `arch`, `python`, tool versions) in snapshot outputs.
 
 ## Server Usage
 
@@ -101,4 +110,4 @@ pytest -q --cov=mcp_desktop_tools
 ```
 
 Integration tests expect both `rg` and `git` to be available.
-See [SECURITY.md](SECURITY.md), [CONFIG.md](CONFIG.md), [PERF.md](PERF.md), and [CONTRIBUTING.md](CONTRIBUTING.md) for additional guidance. Tool-specific schemas are documented in [DOCS/TOOLS.md](DOCS/TOOLS.md).
+See [SECURITY.md](SECURITY.md), [POLICY.md](POLICY.md), [CONFIG.md](CONFIG.md), [PERF.md](PERF.md), and [CONTRIBUTING.md](CONTRIBUTING.md) for additional guidance. Tool-specific schemas are documented in [DOCS/TOOLS.md](DOCS/TOOLS.md), and MLflow/*Lab examples live in [DOCS/INTEGRATIONS.md](DOCS/INTEGRATIONS.md).

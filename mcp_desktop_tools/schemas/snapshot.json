@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "snapshot response",
+  "type": "object",
+  "required": ["ok", "data"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "data": {
+      "type": "object",
+      "required": ["snapshot"],
+      "properties": {
+        "snapshot": {
+          "type": "object",
+          "required": ["workspace_id", "repo_root", "generated_at"],
+          "properties": {
+            "workspace_id": {"type": "string"},
+            "repo_root": {"type": "string"},
+            "generated_at": {"type": "string"},
+            "git": {
+              "type": "object",
+              "properties": {
+                "branch": {"type": ["string", "null"]},
+                "head": {"type": ["string", "null"]},
+                "branches": {
+                  "type": "array",
+                  "items": {"type": "object"}
+                },
+                "last_commits": {
+                  "type": "array",
+                  "items": {"type": "object"}
+                },
+                "authors": {
+                  "type": "array",
+                  "items": {"type": "object"}
+                }
+              },
+              "additionalProperties": true
+            },
+            "fs": {
+              "type": "object",
+              "properties": {
+                "summary": {"type": "object"},
+                "top": {
+                  "type": "array",
+                  "items": {"type": "object"}
+                },
+                "extensions": {"type": "object"},
+                "languages": {"type": "object"},
+                "largest_files": {
+                  "type": "array",
+                  "items": {"type": "object"}
+                }
+              },
+              "additionalProperties": true
+            },
+            "env": {
+              "type": "object",
+              "properties": {
+                "os": {"type": "string"},
+                "arch": {"type": "string"},
+                "python": {"type": "string"},
+                "tools": {"type": "object"}
+              },
+              "additionalProperties": true
+            },
+            "truncated": {"type": "boolean"}
+          },
+          "additionalProperties": true
+        },
+        "artifact": {"type": "string"},
+        "mlflow": {
+          "type": "object",
+          "properties": {
+            "tracking_uri": {"type": "string"},
+            "experiment_id": {"type": "string"},
+            "run_id": {"type": "string"}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "elapsed_ms": {"type": "integer"},
+        "bytes_serialized": {"type": "integer"},
+        "git_cmd_ms": {"type": "integer"},
+        "fs_walk_count": {"type": "integer"}
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
