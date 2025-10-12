@@ -10,11 +10,26 @@ import sys
 from pathlib import Path
 
 from .config import load_workspaces
+from .exporters import ExportFormat, write_export
 from .tools.git_graph import GitGraphRequest, GitGraphResponse, execute as execute_git_graph
 from .tools.open_recent import OpenRecentRequest, OpenRecentResponse, execute as execute_open_recent
 from .tools.repo_map import RepoMapRequest, RepoMapResponse, execute as execute_repo_map
 from .tools.scaffold import ScaffoldRequest, ScaffoldResponse, execute as execute_scaffold
 from .tools.search_text import SearchTextRequest, SearchTextResponse, execute
+from .tools.introspection import (
+    PluginsListRequest,
+    PluginsListResponse,
+    PluginInfoRequest,
+    PluginInfoResponse,
+    WatchersStatusRequest,
+    WatchersStatusResponse,
+    WatchersReindexRequest,
+    WatchersReindexResponse,
+    plugins_list as execute_plugins_list,
+    plugin_info as execute_plugin_info,
+    watchers_status as execute_watchers_status,
+    watchers_reindex as execute_watchers_reindex,
+)
 from .utils.yaml import dump_yaml
 
 APP_NAME = "mcp-tools"
@@ -36,6 +51,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", action="store_true", help="Collect and display profile metrics")
     parser.add_argument("--no-cache", action="store_true", help="Disable caches for this invocation")
     parser.add_argument("--max-workers", type=int, dest="max_workers", help="Limit worker threads for filesystem tasks")
+    parser.add_argument(
+        "--export-format",
+        choices=[item.value for item in ExportFormat],
+        dest="export_format",
+        help="Serialise output using the selected format",
+    )
+    parser.add_argument(
+        "--max-output-bytes",
+        type=int,
+        dest="max_output_bytes",
+        help="Limit the number of bytes written by the export writer",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -98,6 +125,25 @@ def _build_parser() -> argparse.ArgumentParser:
     open_recent_parser.add_argument("--follow-symlinks", dest="follow_symlinks", action="store_true", help="Follow symlinks when walking")
     open_recent_parser.add_argument("--no-follow-symlinks", dest="follow_symlinks", action="store_false", help="Do not follow symlinks (default)")
     open_recent_parser.set_defaults(follow_symlinks=False)
+
+    plugins_parser = subparsers.add_parser("plugins", help="Plugin management commands")
+    plugins_sub = plugins_parser.add_subparsers(dest="plugins_command")
+    plugins_sub.required = True
+
+    plugins_list_parser = plugins_sub.add_parser("list", help="List available plugins")
+    plugins_list_parser.add_argument("--filter", dest="filter", help="Filter plugins by id or name")
+
+    plugins_info_parser = plugins_sub.add_parser("info", help="Show plugin details")
+    plugins_info_parser.add_argument("plugin_id", help="Identifier of the plugin")
+
+    watchers_parser = subparsers.add_parser("watchers", help="Filesystem watcher commands")
+    watchers_sub = watchers_parser.add_subparsers(dest="watchers_command")
+    watchers_sub.required = True
+
+    watchers_sub.add_parser("status", help="Display watcher status")
+
+    watchers_rebuild_parser = watchers_sub.add_parser("rebuild-index", help="Rebuild watchers index")
+    watchers_rebuild_parser.add_argument("--rel-path", dest="rel_path", help="Optional relative path to target")
 
     return parser
 
@@ -254,16 +300,80 @@ def _print_profile_metrics(metrics: Dict[str, object]) -> None:
         print(f"{stage.ljust(stage_width)} | {duration.rjust(duration_width)}", file=sys.stderr)
 
 
+def _print_plugins_list(response: PluginsListResponse) -> None:
+    plugins = response.data.get("plugins") if isinstance(response.data, dict) else None
+    if not plugins:
+        print("No plugins discovered")
+        return
+    for item in plugins:
+        print(f"{item['id']} ({item['status']}) - {item['name']} {item['version']}")
+    for warning in response.warnings:
+        print(f"Warning: {warning}")
+
+
+def _print_plugin_info(response: PluginInfoResponse) -> None:
+    if not response.ok:
+        print("Error: unable to retrieve plugin information")
+        for warning in response.warnings:
+            print(f"Warning: {warning}")
+        return
+    manifest = response.data.get("manifest") if isinstance(response.data, dict) else None
+    if manifest:
+        print(f"ID: {manifest.get('id')}")
+        print(f"Name: {manifest.get('name')}")
+        print(f"Version: {manifest.get('version')}")
+        print(f"Entry: {manifest.get('entry')}")
+        print(f"Capabilities: {', '.join(manifest.get('capabilities', []))}")
+    print(f"Status: {response.data.get('status')}")
+    reason = response.data.get('reason')
+    if reason:
+        print(f"Reason: {reason}")
+    tools = response.data.get("tools", [])
+    if tools:
+        print("Tools:")
+        for tool in tools:
+            print(f"  - {tool}")
+    for warning in response.warnings:
+        print(f"Warning: {warning}")
+
+
+def _print_watchers_status(response: WatchersStatusResponse) -> None:
+    if not response.ok:
+        print("Error: unable to retrieve watcher status")
+        return
+    data = response.data
+    print(f"Enabled: {data.get('enabled')}")
+    print(f"Backend: {data.get('backend')}")
+    print(f"Watchers: {data.get('watchers_count')}")
+    print(f"Queued events: {data.get('queued_events')}")
+    if data.get("last_event_ts"):
+        print(f"Last event: {data.get('last_event_ts')}")
+
+
+def _print_watchers_reindex(response: WatchersReindexResponse) -> None:
+    data = response.data
+    print(f"Reindexed: {data.get('reindexed')}")
+    invalidated = data.get("invalidated") or []
+    if invalidated:
+        print("Invalidated paths:")
+        for item in invalidated:
+            print(f"  - {item}")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
     if args.json and args.yaml:
         parser.error("--json and --yaml cannot be used together")
+    if args.export_format and (args.json or args.yaml):
+        parser.error("--export-format cannot be combined with --json/--yaml")
 
     _configure_logging(args.log_level)
 
     config = load_workspaces()
+
+    export_items: Optional[List[Dict[str, object]]] = None
 
     if args.command == "search_text":
         request = SearchTextRequest(
@@ -359,11 +469,58 @@ def main(argv: Optional[List[str]] = None) -> int:
         response = execute_open_recent(request, config)
         payload = response.to_dict()
         printer = _print_open_recent
+    elif args.command == "plugins":
+        if args.plugins_command == "list":
+            request = PluginsListRequest(filter=args.filter)
+            response = execute_plugins_list(request)
+            payload = response.to_dict()
+            printer = _print_plugins_list
+            data_plugins = response.data.get("plugins") if isinstance(response.data, dict) else None
+            if isinstance(data_plugins, list):
+                export_items = data_plugins
+        elif args.plugins_command == "info":
+            request = PluginInfoRequest(plugin_id=args.plugin_id)
+            response = execute_plugin_info(request)
+            payload = response.to_dict()
+            printer = _print_plugin_info
+        else:
+            parser.error("plugins command requires a sub-command")
+            return 1
+    elif args.command == "watchers":
+        workspace_id = args.workspace
+        if not workspace_id:
+            parser.error("--workspace is required")
+            return 1
+        if args.watchers_command == "status":
+            request = WatchersStatusRequest(workspace_id=workspace_id)
+            response = execute_watchers_status(request)
+            payload = response.to_dict()
+            printer = _print_watchers_status
+        elif args.watchers_command == "rebuild-index":
+            request = WatchersReindexRequest(workspace_id=workspace_id, rel_path=args.rel_path)
+            response = execute_watchers_reindex(request)
+            payload = response.to_dict()
+            printer = _print_watchers_reindex
+        else:
+            parser.error("watchers command requires a sub-command")
+            return 1
     else:
         parser.error("A command is required")
         return 1
 
-    if args.json:
+    if args.export_format:
+        fmt = ExportFormat(args.export_format)
+        target = payload
+        if fmt is ExportFormat.NDJSON:
+            if export_items is None:
+                parser.error("Command does not support ndjson export")
+                return 1
+            target = export_items
+        result = write_export(target, fmt, max_output_bytes=args.max_output_bytes)
+        print(result.payload)
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    elif args.json:
         print(json.dumps(payload, indent=2))
     elif args.yaml:
         print(dump_yaml(payload), end="")

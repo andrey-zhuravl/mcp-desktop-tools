@@ -1,0 +1,8 @@
+id: demo.echo
+name: Demo Echo
+version: 0.1.0
+entry: examples.plugins.demo_plugin.main:register
+capabilities:
+  - read_only
+tools:
+  - echo

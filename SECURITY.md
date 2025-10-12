@@ -25,6 +25,29 @@ The only external binary used in A1 is [`ripgrep`](https://github.com/BurntSushi
 
 Logs include tool invocation metadata and warnings emitted by ripgrep. The log level defaults to `INFO` and may be overridden with the `MCPDT_LOG` environment variable or the CLI `--log-level` flag.
 
+## Plugins
+
+The plugin loader enforces a conservative allow-list policy. By default only
+plugins declaring the `read_only` capability are accepted and identifiers must
+match the `MCPDT_PLUGINS_ALLOW` environment allow-list. The deny-list takes
+precedence and immediately blocks the plugin before any Python code is
+executed. Plugin manifests are validated against the built-in schema before the
+runtime imports the plugin entry point.
+
+## Watchers
+
+The watcher engine keeps per-workspace event counters and honours
+configuration limits such as debounce periods and maximum batch sizes. Events
+outside the configured workspaces are ignored and rebuild operations reset the
+queue to guard against event storms.
+
+## Export Limits
+
+CLI exports share a common writer that tracks the number of bytes written. When
+the configured `max_output_bytes` limit is exceeded the output is truncated and
+an explicit warning is emitted on stderr, preventing oversized payloads from
+being delivered silently.
+
 ## Future Work
 
 - **A2:** integrate additional repository inspection tools with the same path policy.
