@@ -1,6 +1,6 @@
 # MCP Desktop Tools – Tool Reference
 
-This document enumerates the MCP tools exported by the desktop server in release **0.1.0b1**. Each section outlines the intent, key input arguments, response shape, and operational limits.
+This document enumerates the MCP tools exported by the desktop server in release **0.1.0c1**. Each section outlines the intent, key input arguments, response shape, and operational limits.
 
 ## `search_text`
 
@@ -76,6 +76,30 @@ This document enumerates the MCP tools exported by the desktop server in release
 - **Limits:** `scaffold_max_files` and `scaffold_max_total_bytes` cap the number of generated files and cumulative size.
 
 See [DOCS/SCAFFOLD.md](SCAFFOLD.md) for template authoring details and GardenKeeper examples.
+
+## `snapshot`
+
+- **Intent:** Produce a single JSON artifact describing git state, filesystem metrics, and optional environment metadata for a workspace subtree. The artifact can be written locally and/or logged to MLflow.
+- **Input:**
+  - `workspace_id` *(string, required)*
+  - `rel_path` *(string, required)* – Directory inside the workspace to analyse.
+  - `include_git` / `include_fs` / `include_env` *(bool, default: true)* – Toggle individual sections.
+  - `largest_files` *(int, default: 50)* – Maximum entries retained in `fs.largest_files`.
+  - `mlflow_logging` *(bool, default: true in CLI)* – Enable MLflow logging.
+  - `mlflow_uri`, `experiment`, `run_name` *(string, optional)* – Override MLflow tracking location, experiment, and run display name.
+  - `tags` *(object[string])* – Additional tags applied to the MLflow run.
+  - `artifact_path` *(string, default: `repo_snapshot.json`)* – Filename for both the local artifact and MLflow upload.
+- **Output:**
+  - `data.snapshot` – Top-level metadata (`workspace_id`, `repo_root`, `generated_at`) plus optional `git`, `fs`, and `env` sections.
+  - `data.artifact` – Absolute path to the written JSON artifact when successful.
+  - `data.mlflow` – Tracking URI, experiment ID, and run ID when MLflow logging succeeds.
+  - `warnings` – Includes tool-level warnings (git/repo_map), environment opt-in reminders, MLflow failures, or truncation notices.
+  - `metrics` – `elapsed_ms`, `bytes_serialized`, and propagated metrics from sub-tools (`git_cmd_ms`, `fs_walk_count`).
+- **Limits:**
+  - Snapshot size is bounded by `max_output_bytes`; sections are progressively dropped (largest files, top directories, extensions, languages, git authors/commits) when necessary.
+  - Git commits respect the configured `git_last_commits` cap.
+  - Environment metadata is only included when `MCPDT_SNAPSHOT_INCLUDE_ENV=1`.
+- **Security:** No file contents are read. All sub-tool permissions must be granted (workspace `allow` list should contain `snapshot`, `git_graph`, and `repo_map`).
 
 ## `open_recent`
 

@@ -1,0 +1,12 @@
+stage('Snapshot') {
+  steps {
+    sh '''
+      mcp-tools --workspace ai-projects snapshot                 --rel-path GardenKeeper                 --mlflow-uri "$MLFLOW_TRACKING_URI"                 --experiment homelab                 --run-name "$BUILD_TAG"                 --tag repo=GardenKeeper --tag stage=C1                 --artifact-path repo_snapshot.json --json > snapshot.json
+    '''
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'snapshot.json, repo_snapshot.json', fingerprint: true
+    }
+  }
+}

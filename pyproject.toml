@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-desktop-tools"
-version = "0.1.0b2"
+version = "0.1.0c1"
 description = "MCP Desktop Tools server and CLI"
 authors = [{name = "MCP Desktop Tools Team"}]
 readme = "README.md"
@@ -25,6 +25,8 @@ dependencies = [
     "pathspec>=0.12",
     "platformdirs>=4.0",
     "diskcache>=5.6",
+    "python-dateutil>=2.9",
+    "mlflow>=2.14",
 ]
 
 [project.optional-dependencies]
