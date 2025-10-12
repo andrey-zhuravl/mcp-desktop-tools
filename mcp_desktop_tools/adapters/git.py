@@ -64,6 +64,7 @@ def run_git(
     *,
     git_path: str = "git",
     check: bool = True,
+    timeout_ms: Optional[int] = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a git command inside *repo_path* returning the completed process."""
 
@@ -79,9 +80,12 @@ def run_git(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding="utf-8",
+            timeout=(timeout_ms / 1000) if timeout_ms else None,
         )
     except FileNotFoundError as exc:  # pragma: no cover - defensive
         raise GitNotFoundError(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError("git command timed out") from exc
 
     if check and completed.returncode != 0:
         raise GitError(completed.stderr.strip() or "git command failed")
@@ -89,8 +93,8 @@ def run_git(
     return completed
 
 
-def get_repo_root(path: Path, *, git_path: str = "git") -> Path:
-    process = run_git(path, ["rev-parse", "--show-toplevel"], git_path=git_path)
+def get_repo_root(path: Path, *, git_path: str = "git", timeout_ms: Optional[int] = None) -> Path:
+    process = run_git(path, ["rev-parse", "--show-toplevel"], git_path=git_path, timeout_ms=timeout_ms)
     output = process.stdout.strip()
     if not output:
         raise GitError("Failed to determine repository root")
@@ -135,7 +139,12 @@ def parse_branches(payload: str) -> List[BranchInfo]:
     return branches
 
 
-def list_branches(repo_path: Path, *, git_path: str = "git") -> List[BranchInfo]:
+def list_branches(
+    repo_path: Path,
+    *,
+    git_path: str = "git",
+    timeout_ms: Optional[int] = None,
+) -> List[BranchInfo]:
     format_arg = "%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:trackshort)%00%(objectname)"
     args = [
         "for-each-ref",
@@ -144,7 +153,7 @@ def list_branches(repo_path: Path, *, git_path: str = "git") -> List[BranchInfo]
         "--sort=-committerdate",
         "refs/heads",
     ]
-    process = run_git(repo_path, args, git_path=git_path)
+    process = run_git(repo_path, args, git_path=git_path, timeout_ms=timeout_ms)
     return parse_branches(process.stdout)
 
 
@@ -192,11 +201,18 @@ def _parse_numstat(lines: Iterable[str]) -> List[CommitFile]:
     return files
 
 
-def _load_commit_files(repo_path: Path, commit_hash: str, *, git_path: str) -> List[CommitFile]:
+def _load_commit_files(
+    repo_path: Path,
+    commit_hash: str,
+    *,
+    git_path: str,
+    timeout_ms: Optional[int] = None,
+) -> List[CommitFile]:
     process = run_git(
         repo_path,
         ["show", commit_hash, "--numstat", "--format="],
         git_path=git_path,
+        timeout_ms=timeout_ms,
     )
     return _parse_numstat(process.stdout.splitlines())
 
@@ -207,6 +223,7 @@ def get_last_commits(
     git_path: str = "git",
     max_count: int = 20,
     with_files: bool = False,
+    timeout_ms: Optional[int] = None,
 ) -> List[CommitInfo]:
     format_arg = "%x1e%H%x1f%an%x1f%ae%x1f%ad%x1f%B"
     args = [
@@ -216,11 +233,16 @@ def get_last_commits(
         "--pretty=format:" + format_arg,
         "--no-show-signature",
     ]
-    process = run_git(repo_path, args, git_path=git_path)
+    process = run_git(repo_path, args, git_path=git_path, timeout_ms=timeout_ms)
     commits = parse_log(process.stdout)
     if with_files:
         for commit in commits:
-            commit.files = _load_commit_files(repo_path, commit.hash, git_path=git_path)
+            commit.files = _load_commit_files(
+                repo_path,
+                commit.hash,
+                git_path=git_path,
+                timeout_ms=timeout_ms,
+            )
     return commits
 
 
@@ -244,8 +266,13 @@ def parse_shortlog(payload: str) -> List[AuthorStat]:
     return stats
 
 
-def get_author_stats(repo_path: Path, *, git_path: str = "git") -> List[AuthorStat]:
-    process = run_git(repo_path, ["shortlog", "-sne", "HEAD"], git_path=git_path)
+def get_author_stats(
+    repo_path: Path,
+    *,
+    git_path: str = "git",
+    timeout_ms: Optional[int] = None,
+) -> List[AuthorStat]:
+    process = run_git(repo_path, ["shortlog", "-sne", "HEAD"], git_path=git_path, timeout_ms=timeout_ms)
     return parse_shortlog(process.stdout)
 
 

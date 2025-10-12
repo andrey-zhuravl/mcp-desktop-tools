@@ -1,7 +1,7 @@
 """Command line interface for MCP Desktop Tools."""
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 import argparse
 import json
 import logging
@@ -33,6 +33,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Return output in JSON format")
     parser.add_argument("--yaml", action="store_true", help="Return output in YAML format")
     parser.add_argument("--log-level", help="Logging level")
+    parser.add_argument("--profile", action="store_true", help="Collect and display profile metrics")
+    parser.add_argument("--no-cache", action="store_true", help="Disable caches for this invocation")
+    parser.add_argument("--max-workers", type=int, dest="max_workers", help="Limit worker threads for filesystem tasks")
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -226,6 +229,31 @@ def _print_open_recent(response: OpenRecentResponse) -> None:
         print(f"Warning: {warning}")
 
 
+def _print_profile_metrics(metrics: Dict[str, object]) -> None:
+    profile_data = metrics.get("profile") if isinstance(metrics, dict) else None
+    if not isinstance(profile_data, list) or not profile_data:
+        return
+    rows: List[Tuple[str, str]] = []
+    stage_width = len("Stage")
+    duration_width = len("ms")
+    for item in profile_data:
+        if not isinstance(item, dict):
+            continue
+        stage = str(item.get("stage", ""))
+        duration = str(item.get("ms", ""))
+        rows.append((stage, duration))
+        stage_width = max(stage_width, len(stage))
+        duration_width = max(duration_width, len(duration))
+    if not rows:
+        return
+    print("Profile:", file=sys.stderr)
+    header = f"{'Stage'.ljust(stage_width)} | {'ms'.rjust(duration_width)}"
+    print(header, file=sys.stderr)
+    print(f"{'-' * stage_width}-+-{'-' * duration_width}", file=sys.stderr)
+    for stage, duration in rows:
+        print(f"{stage.ljust(stage_width)} | {duration.rjust(duration_width)}", file=sys.stderr)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -250,6 +278,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             before=args.before,
             after=args.after,
             max_depth=args.max_depth,
+            disable_cache=args.no_cache,
+            profile=args.profile,
         )
         response = execute(request, config)
         payload = response.to_dict()
@@ -275,6 +305,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             follow_symlinks=args.follow_symlinks,
             include_globs=args.include or [],
             exclude_globs=args.exclude or [],
+            disable_cache=args.no_cache,
+            profile=args.profile,
+            max_workers=args.max_workers,
         )
         response = execute_repo_map(request, config)
         payload = response.to_dict()
@@ -336,6 +369,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(dump_yaml(payload), end="")
     else:
         printer(response)
+
+    if args.profile:
+        _print_profile_metrics(response.metrics)
 
     return 0 if response.ok else 1
 

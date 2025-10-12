@@ -1,7 +1,7 @@
 """Minimal YAML utilities with limited feature support."""
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Tuple
+from typing import Any, List, Tuple
 
 
 class YamlError(ValueError):

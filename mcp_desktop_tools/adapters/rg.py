@@ -33,6 +33,7 @@ class RipgrepRequest:
     after: int = 0
     max_depth: Optional[int] = None
     max_file_size_bytes: Optional[int] = None
+    timeout_ms: Optional[int] = None
 
 
 @dataclass
@@ -108,9 +109,12 @@ def run_ripgrep(request: RipgrepRequest) -> RipgrepResult:
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
+            timeout=(request.timeout_ms / 1000) if request.timeout_ms else None,
         )
     except FileNotFoundError as exc:
         raise RipgrepNotFoundError(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError("ripgrep timed out") from exc
 
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 

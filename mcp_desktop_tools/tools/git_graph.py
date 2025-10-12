@@ -156,9 +156,15 @@ def execute(request: GitGraphRequest, config: WorkspacesConfig) -> GitGraphRespo
         warnings.append("with_files=true with large last_commits may be slow")
 
     git_elapsed = 0
+    timeout_ms = config.env.subprocess_timeout_ms
 
     try:
-        repo_root, elapsed_git = measure_git(get_repo_root, validation.path, git_path=git_path)
+        repo_root, elapsed_git = measure_git(
+            get_repo_root,
+            validation.path,
+            git_path=git_path,
+            timeout_ms=timeout_ms,
+        )
         git_elapsed += elapsed_git
     except GitNotFoundError as exc:
         elapsed = int((time.perf_counter() - start) * 1000)
@@ -178,12 +184,29 @@ def execute(request: GitGraphRequest, config: WorkspacesConfig) -> GitGraphRespo
             metrics={"elapsed_ms": elapsed},
             error={"type": "execution_error", "message": str(exc)},
         )
+    except TimeoutError:
+        elapsed = int((time.perf_counter() - start) * 1000)
+        return GitGraphResponse(
+            ok=False,
+            data=GitGraphData(repo_root="", branches=[], last_commits=[]),
+            warnings=["git command timed out"],
+            metrics={"elapsed_ms": elapsed},
+            error={"type": "timeout", "message": "git command timed out"},
+        )
 
     try:
-        branches, elapsed_branch = measure_git(list_branches, repo_root, git_path=git_path)
+        branches, elapsed_branch = measure_git(
+            list_branches,
+            repo_root,
+            git_path=git_path,
+            timeout_ms=timeout_ms,
+        )
         git_elapsed += elapsed_branch
     except GitError as exc:
         warnings.append(f"Failed to list branches: {exc}")
+        branches = []
+    except TimeoutError:
+        warnings.append("Listing branches timed out")
         branches = []
 
     try:
@@ -193,20 +216,31 @@ def execute(request: GitGraphRequest, config: WorkspacesConfig) -> GitGraphRespo
             git_path=git_path,
             max_count=effective_last_commits,
             with_files=request.with_files,
+            timeout_ms=timeout_ms,
         )
         git_elapsed += elapsed_commits
     except GitError as exc:
         warnings.append(f"Failed to retrieve commits: {exc}")
         commits = []
+    except TimeoutError:
+        warnings.append("Fetching commits timed out")
+        commits = []
 
     authors: List[AuthorStat] = []
     if request.authors_stats:
         try:
-            authors_stats, elapsed_authors = measure_git(get_author_stats, repo_root, git_path=git_path)
+            authors_stats, elapsed_authors = measure_git(
+                get_author_stats,
+                repo_root,
+                git_path=git_path,
+                timeout_ms=timeout_ms,
+            )
             authors = authors_stats
             git_elapsed += elapsed_authors
         except GitError as exc:
             warnings.append(f"Failed to compute author stats: {exc}")
+        except TimeoutError:
+            warnings.append("Author statistics timed out")
 
     elapsed_total = int((time.perf_counter() - start) * 1000)
 

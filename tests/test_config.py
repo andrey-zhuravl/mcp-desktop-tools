@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from pathlib import Path
-
 import textwrap
 
 import pytest
@@ -34,7 +32,7 @@ def test_load_valid_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    cfg1 = _write_config(
+    _write_config(
         tmp_path,
         """
         version: 1

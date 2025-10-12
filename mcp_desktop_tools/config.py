@@ -79,6 +79,7 @@ class EnvConfig:
     git_path: Optional[str] = None
     templates_user_dir: Optional[str] = None
     scaffold_default_dry_run: Optional[bool] = None
+    subprocess_timeout_ms: Optional[int] = None
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "EnvConfig":
@@ -88,6 +89,12 @@ class EnvConfig:
         git_path = data.get("git_path")
         templates_user_dir = data.get("templates_user_dir")
         dry_run_default = data.get("scaffold_default_dry_run")
+        timeout_raw = data.get("subprocess_timeout_ms")
+        timeout_ms: Optional[int] = None
+        if timeout_raw is not None:
+            if not isinstance(timeout_raw, int) or timeout_raw <= 0:
+                raise ValidationError("subprocess_timeout_ms must be a positive integer")
+            timeout_ms = timeout_raw
         if dry_run_default is not None and not isinstance(dry_run_default, bool):
             raise ValidationError("scaffold_default_dry_run must be a boolean")
         return cls(
@@ -95,6 +102,7 @@ class EnvConfig:
             git_path=str(git_path) if git_path is not None else None,
             templates_user_dir=str(templates_user_dir) if templates_user_dir is not None else None,
             scaffold_default_dry_run=bool(dry_run_default) if dry_run_default is not None else None,
+            subprocess_timeout_ms=timeout_ms,
         )
 
 
@@ -207,6 +215,7 @@ ENV_RG_PATH = "MCPDT_RG_PATH"
 ENV_GIT_PATH = "MCPDT_GIT_PATH"
 ENV_TEMPLATES_DIR = "MCPDT_TEMPLATES_USER_DIR"
 ENV_SCAFFOLD_DRYRUN = "MCPDT_SCAFFOLD_DEFAULT_DRYRUN"
+ENV_SUBPROCESS_TIMEOUT = "MCPDT_SUBPROC_TIMEOUT_MS"
 
 
 def _locate_config_file(explicit_path: Optional[Path] = None) -> Path:
@@ -238,6 +247,16 @@ def load_workspaces(config_path: Optional[Path] = None) -> WorkspacesConfig:
     templates_dir_override = os.environ.get(ENV_TEMPLATES_DIR)
     if templates_dir_override:
         config.env.templates_user_dir = templates_dir_override
+
+    timeout_override = os.environ.get(ENV_SUBPROCESS_TIMEOUT)
+    if timeout_override:
+        try:
+            timeout_value = int(timeout_override)
+        except ValueError as exc:  # pragma: no cover - defensive
+            raise ValidationError("MCPDT_SUBPROC_TIMEOUT_MS must be an integer") from exc
+        if timeout_value <= 0:
+            raise ValidationError("MCPDT_SUBPROC_TIMEOUT_MS must be positive")
+        config.env.subprocess_timeout_ms = timeout_value
 
     dry_run_override = os.environ.get(ENV_SCAFFOLD_DRYRUN)
     if dry_run_override is not None:

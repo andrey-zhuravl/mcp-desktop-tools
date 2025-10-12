@@ -47,7 +47,7 @@ def test_repo_map_basic(tmp_path: Path) -> None:
     assert summary.files == 2
     assert response.data.extensions[".py"] == 1
     assert response.data.extensions[".md"] == 1
-    assert "Skipped data/large.bin" in " ".join(response.warnings)
+    assert any("data/large.bin" in warning for warning in response.warnings)
 
 
 def test_repo_map_include_glob(tmp_path: Path) -> None:

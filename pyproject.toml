@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-desktop-tools"
-version = "0.1.0b1"
+version = "0.1.0b2"
 description = "MCP Desktop Tools server and CLI"
 authors = [{name = "MCP Desktop Tools Team"}]
 readme = "README.md"
@@ -13,9 +13,27 @@ license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
 ]
-dependencies = []
+dependencies = [
+    "typer>=0.12",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "orjson>=3.9",
+    "pathspec>=0.12",
+    "platformdirs>=4.0",
+    "diskcache>=5.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
 
 [project.urls]
 Homepage = "https://example.com/mcp-desktop-tools"

@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from mcp_desktop_tools.security import path_in_workspace
 
 
