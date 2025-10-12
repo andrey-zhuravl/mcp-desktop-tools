@@ -77,6 +77,8 @@ class Workspace:
 class EnvConfig:
     rg_path: Optional[str] = None
     git_path: Optional[str] = None
+    templates_user_dir: Optional[str] = None
+    scaffold_default_dry_run: Optional[bool] = None
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "EnvConfig":
@@ -84,9 +86,15 @@ class EnvConfig:
             return cls()
         rg_path = data.get("rg_path")
         git_path = data.get("git_path")
+        templates_user_dir = data.get("templates_user_dir")
+        dry_run_default = data.get("scaffold_default_dry_run")
+        if dry_run_default is not None and not isinstance(dry_run_default, bool):
+            raise ValidationError("scaffold_default_dry_run must be a boolean")
         return cls(
             rg_path=str(rg_path) if rg_path is not None else None,
             git_path=str(git_path) if git_path is not None else None,
+            templates_user_dir=str(templates_user_dir) if templates_user_dir is not None else None,
+            scaffold_default_dry_run=bool(dry_run_default) if dry_run_default is not None else None,
         )
 
 
@@ -99,6 +107,9 @@ class LimitsConfig:
     repo_map_max_depth: int = 5
     repo_map_top_dirs: int = 50
     repo_map_follow_symlinks: bool = False
+    scaffold_max_files: int = 2000
+    scaffold_max_total_bytes: int = 2_000_000
+    recent_files_count: int = 50
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "LimitsConfig":
@@ -112,6 +123,9 @@ class LimitsConfig:
             "git_last_commits",
             "repo_map_max_depth",
             "repo_map_top_dirs",
+            "scaffold_max_files",
+            "scaffold_max_total_bytes",
+            "recent_files_count",
         )
         for key in int_fields:
             value = data.get(key)
@@ -136,6 +150,9 @@ class LimitsConfig:
             "repo_map_max_depth": self.repo_map_max_depth,
             "repo_map_top_dirs": self.repo_map_top_dirs,
             "repo_map_follow_symlinks": self.repo_map_follow_symlinks,
+            "scaffold_max_files": self.scaffold_max_files,
+            "scaffold_max_total_bytes": self.scaffold_max_total_bytes,
+            "recent_files_count": self.recent_files_count,
         }
         for key, value in overrides.items():
             if value is not None:
@@ -188,6 +205,8 @@ DEFAULT_CONFIG_NAME = "workspaces.yaml"
 ENV_CONFIG_PATH = "MCPDT_WORKSPACES"
 ENV_RG_PATH = "MCPDT_RG_PATH"
 ENV_GIT_PATH = "MCPDT_GIT_PATH"
+ENV_TEMPLATES_DIR = "MCPDT_TEMPLATES_USER_DIR"
+ENV_SCAFFOLD_DRYRUN = "MCPDT_SCAFFOLD_DEFAULT_DRYRUN"
 
 
 def _locate_config_file(explicit_path: Optional[Path] = None) -> Path:
@@ -215,6 +234,14 @@ def load_workspaces(config_path: Optional[Path] = None) -> WorkspacesConfig:
     git_path_override = os.environ.get(ENV_GIT_PATH)
     if git_path_override:
         config.env.git_path = git_path_override
+
+    templates_dir_override = os.environ.get(ENV_TEMPLATES_DIR)
+    if templates_dir_override:
+        config.env.templates_user_dir = templates_dir_override
+
+    dry_run_override = os.environ.get(ENV_SCAFFOLD_DRYRUN)
+    if dry_run_override is not None:
+        config.env.scaffold_default_dry_run = dry_run_override not in {"0", "false", "False"}
 
     return config
 

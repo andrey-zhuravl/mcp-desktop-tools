@@ -1,0 +1,18 @@
+name: python_cli_min
+version: 1
+description: "Minimal Typer-based CLI scaffold"
+vars:
+  project_name:
+    required: true
+  package_name:
+    required: false
+  description:
+    required: false
+    default: "Command line utility"
+files:
+  - src: "files/pyproject.toml.j2"
+    dst: "pyproject.toml"
+  - src: "files/__init__.py.j2"
+    dst: "{{ package_name }}/__init__.py"
+  - src: "files/cli.py.j2"
+    dst: "{{ package_name }}/cli.py"

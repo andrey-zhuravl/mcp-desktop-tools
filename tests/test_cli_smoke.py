@@ -124,3 +124,74 @@ limits:
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "\"summary\"" in captured.out
+
+
+def test_cli_scaffold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+
+    config_file = tmp_path / "workspaces.yaml"
+    config_file.write_text(
+        f"""
+version: 1
+workspaces:
+  - id: demo
+    path: {workspace_root.as_posix()}
+    tools:
+      allow: [scaffold]
+limits:
+  scaffold_max_files: 10
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(ENV_CONFIG_PATH, str(config_file))
+
+    exit_code = main([
+        "--workspace",
+        "demo",
+        "--json",
+        "scaffold",
+        "--target-rel",
+        "demo",
+        "--template-id",
+        "pyproject_min",
+        "--var",
+        "project_name=demo",
+    ])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "\"files_planned\"" in captured.out
+
+
+def test_cli_open_recent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    (workspace_root / "file.txt").write_text("data", encoding="utf-8")
+
+    config_file = tmp_path / "workspaces.yaml"
+    config_file.write_text(
+        f"""
+version: 1
+workspaces:
+  - id: demo
+    path: {workspace_root.as_posix()}
+    tools:
+      allow: [open_recent]
+limits:
+  recent_files_count: 5
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(ENV_CONFIG_PATH, str(config_file))
+
+    exit_code = main([
+        "--workspace",
+        "demo",
+        "--json",
+        "open_recent",
+    ])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "\"files\"" in captured.out

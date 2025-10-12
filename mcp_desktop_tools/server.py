@@ -9,7 +9,9 @@ import sys
 
 from .config import load_workspaces
 from .tools.git_graph import GitGraphRequest, execute as execute_git_graph
+from .tools.open_recent import OpenRecentRequest, execute as execute_open_recent
 from .tools.repo_map import RepoMapRequest, execute as execute_repo_map
+from .tools.scaffold import ScaffoldRequest, execute as execute_scaffold
 from .tools.search_text import SearchTextRequest, execute
 
 LOG_ENV = "MCPDT_LOG"
@@ -37,6 +39,8 @@ class MCPServer:
         self.registry.register("search_text", self._run_search_text)
         self.registry.register("git_graph", self._run_git_graph)
         self.registry.register("repo_map", self._run_repo_map)
+        self.registry.register("scaffold", self._run_scaffold)
+        self.registry.register("open_recent", self._run_open_recent)
         LOGGER.info("Registered tools: %s", ", ".join(self.registry._tools.keys()))
 
     def _run_search_text(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,6 +56,16 @@ class MCPServer:
     def _run_repo_map(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         request = RepoMapRequest.from_dict(payload)
         response = execute_repo_map(request, self.config)
+        return response.to_dict()
+
+    def _run_scaffold(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        request = ScaffoldRequest.from_dict(payload)
+        response = execute_scaffold(request, self.config)
+        return response.to_dict()
+
+    def _run_open_recent(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        request = OpenRecentRequest.from_dict(payload)
+        response = execute_open_recent(request, self.config)
         return response.to_dict()
 
     def handle_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:

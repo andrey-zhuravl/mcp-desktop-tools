@@ -1,0 +1,10 @@
+name: notebook_lab
+version: 1
+description: "Starter Jupyter notebook"
+vars:
+  title:
+    required: false
+    default: "Exploration"
+files:
+  - src: "files/notebook.ipynb.j2"
+    dst: "notebook.ipynb"
